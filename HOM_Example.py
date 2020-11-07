@@ -26,7 +26,7 @@ import numpy as np
 
 
 ######################################################################################################
-def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_resolving_det=True):
+def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_resolving_det=True, cutoff=6):
     """
     Function that simulates the HOM experiment as a function of the squeezing, the BS reflectivity,
     and of the type of single photon detectors used.
@@ -37,6 +37,8 @@ def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_reso
     :param float bs_reflectivity: reflectivity of the beam-splitter
     :param bool number_resolving_det: If True, photon-number resolving detectors are used,
                                       if False threshold detectors are used.
+    :param int cutoff: Cutoff for maximum number of photons to be present in all detected modes,
+                       used when simulating threshold detection.
     :return: The 4-fold coincidence detection probability, i.e. probability that all 4 output detectors click.
     """
 
@@ -122,8 +124,7 @@ def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_reso
         det_prob = gauss_state.fock_prob(output_Fock)
     else:
         ## Calculates the detection probability considering threshold detectors.
-        ## TODO: get Torontonian stuff working.
-        raise ValueError("Simulation with Threshold detectors not implemented yet.")
+        det_prob = threshold_detection_prob(gauss_state, output_Fock, cutoff=cutoff)
 
     return det_prob
 
@@ -132,16 +133,17 @@ def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_reso
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
-    resolv_det = True
+    resolv_det = False
+    cutoff = 8  # indicates maximum number of photons assumed in the experiment
 
     ################################################################################
-    ## Test 1: calculate visibility with ficed bs reflectivity and squeezing value
+    ## Test 1: calculate visibility with fixed bs reflectivity and squeezing value
     ################################################################################
 
     print("\nTest 1: calculate visibility with fixed bs reflectivity and squeezing value.")
     s_par = 0.2
     bs_refl = 0.5
-    coinc_prob = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det)
+    coinc_prob = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, cutoff=cutoff)
     print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold probability:", coinc_prob)
 
     #########################################################
@@ -150,8 +152,8 @@ if __name__ == "__main__":
 
     print("\nTest 2: (HOM fringe): photon counts vs. BS reflectivity.")
     s_par = 0.2
-    refl_list = np.linspace(0, 1, 101)
-    det_counts_list = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det) for bs_refl in refl_list]
+    refl_list = np.linspace(0., 1, 101)
+    det_counts_list = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, cutoff=cutoff) for bs_refl in refl_list]
 
     plt.plot(refl_list, det_counts_list)
     plt.xlabel('Beam-splitter reflectivity')
@@ -162,18 +164,18 @@ if __name__ == "__main__":
     ## Test 3: HOM visibility vs squeezing parameter, 50/50 BS
     #########################################################
 
-    def get_HOM_visibility(squeezing_parameter, number_resolving_det=True):
-        max_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0, number_resolving_det)
-        min_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0.5, number_resolving_det)
-        return (max_prob - 2 * min_prob)/min_prob # see Adcock et al. Nature Comm. (2019)
+    def get_HOM_visibility(squeezing_parameter, number_resolving_det=resolv_det, phot_cutoff=cutoff):
+        max_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0, number_resolving_det, cutoff=phot_cutoff)
+        min_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0.5, number_resolving_det, cutoff=phot_cutoff)
+        return (max_prob - 2 * min_prob)/max_prob # see Adcock et al. Nature Comm. (2019)
 
     print("\nTest 3: HOM visibility vs squeezing parameter, 50/50 BS.")
-    squeeze_list = np.linspace(0, 2, 100)
-    det_counts_list = [get_HOM_visibility(s_par, resolv_det) for s_par in squeeze_list]
+    squeeze_list = np.linspace(0.01, 0.5, 101)
+    vis_list = [get_HOM_visibility(s_par, resolv_det) for s_par in squeeze_list]
 
-    plt.plot(squeeze_list, det_counts_list)
-    plt.xlabel(r'Squeezing parameter $|tanh(s)|^2$')
-    plt.ylabel('4-Fold counts')
+    plt.plot(np.tanh(squeeze_list), vis_list)
+    plt.xlabel(r'Squeezing parameter  $|tanh(s)|$')
+    plt.ylabel('HOM visibility')
     plt.show()
 
 
