@@ -110,6 +110,8 @@ def map_into_StrawberryFields(Displ, Cov, NumModes):
 
 def threshold_detection_prob(gauss_state, det_pattern, cutoff=6):
     ## Calculates the single photon-detection probability considering threshold detectors.
+    ## TODO: This way of calulating all detection patterns scales exponentially with number of modes detected...
+    ## better approach is required
     out_fock = copy(det_pattern)
     if max(out_fock) > 1:
         raise ValueError("When using threshold detectors, the detection pattern can contain only 1s or 0s.")
@@ -138,7 +140,7 @@ def get_DFT(m):
 
 def conf_to_Fock(Conf, NumModes):
     ### Converts a configuration into a Fock vector
-    tempFock = np.zeros(NumModes)
+    tempFock = np.zeros(NumModes, dtype=int)
     for x in Conf:
         tempFock[x] = tempFock[x] + 1
     return tempFock

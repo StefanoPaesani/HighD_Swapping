@@ -12,7 +12,7 @@ import numpy as np
 ##########################################################################################
 if __name__=="__main__":
 
-    dim =
+    dim = 4
     s_par = 0.2
     num_modes = 2
     cov0 = np.identity(2*num_modes)
