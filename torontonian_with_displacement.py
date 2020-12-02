@@ -24,7 +24,8 @@ def tor_with_displ(M, r):
         MMs = M[np.ix_(ii, ii)]
         rrs = r[ii]
 
-        ee = np.exp(rrs.conj() @ MMs @ rrs).real
+        # ee = np.exp(rrs @ MMs @ rrs.conj() * (-0.5)).real
+        ee = np.exp(rrs.conj() @ MMs @ rrs * (-0.5)).real
 
         # matrix using elements associated to the complementary set
         Ms = np.delete(M, ii, axis=0)

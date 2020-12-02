@@ -205,9 +205,6 @@ if __name__ == "__main__":
     ## Test 3: HOM visibility vs amplitude, 50/50 BS
     #########################################################
 
-    ampl = 0.2
-
-
 
     print("\nTest 4: HOM visibility vs amplitude, 50/50 BS.")
     s_par = 0.1

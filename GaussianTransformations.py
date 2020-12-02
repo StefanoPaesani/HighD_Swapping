@@ -151,7 +151,8 @@ def threshold_detection_prob(gauss_state, det_pattern):
     Q0 = np.delete(Q, ii, axis=0)
     Q0 = np.delete(Q0, ii, axis=1)
     pref1 = np.sqrt(np.linalg.det(Q).real)
-    pref2 = np.exp(means0.conj() @ Q0 @ means0)
+    # pref2 = np.exp(means0 @ Q0 @ means0.conj() * (-0.5))
+    pref2 = np.exp(means0.conj() @ Q0 @ means0 * (-0.5))
     pref = (pref2 / pref1).real
 
     # modes with detection
