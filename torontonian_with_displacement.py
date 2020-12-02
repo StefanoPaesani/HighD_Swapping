@@ -26,6 +26,7 @@ def tor_with_displ(M, r):
 
         # ee = np.exp(rrs @ MMs @ rrs.conj() * (-0.5)).real
         ee = np.exp(rrs.conj() @ MMs @ rrs * (-0.5)).real
+        print(np.exp(rrs.conj() @ MMs @ rrs * (-0.5)).imag)
 
         # matrix using elements associated to the complementary set
         Ms = np.delete(M, ii, axis=0)
@@ -34,6 +35,7 @@ def tor_with_displ(M, r):
         ll = len(Ms)
         if ll != 0: #Check it is not the "empty matrix"
             dd = np.linalg.det(Ms).real
+            print(np.linalg.det(Ms).imag)
         else:
             dd = 1
         ssum += ((-1)**(len(i))) * ee / np.sqrt(dd)

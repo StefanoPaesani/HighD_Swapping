@@ -137,6 +137,7 @@ def threshold_detection_prob(gauss_state, det_pattern):
     n = m//2
 
     Q = np.array(Qmat(covM))
+    Qinv = np.linalg.inv(Q)
 
     out_fock = copy(det_pattern)
     if max(out_fock) > 1:
@@ -148,17 +149,17 @@ def threshold_detection_prob(gauss_state, det_pattern):
     # modes without detection for prefactor
     means0 = np.delete(means, ii)
 
-    Q0 = np.delete(Q, ii, axis=0)
+    Q0 = np.delete(Qinv, ii, axis=0)
     Q0 = np.delete(Q0, ii, axis=1)
+
     pref1 = np.sqrt(np.linalg.det(Q).real)
-    # pref2 = np.exp(means0 @ Q0 @ means0.conj() * (-0.5))
     pref2 = np.exp(means0.conj() @ Q0 @ means0 * (-0.5))
     pref = (pref2 / pref1).real
 
     # modes with detection
     meansd = means[ii]
 
-    Qd = Q[np.ix_(ii, ii)]
+    Qd = Qinv[np.ix_(ii, ii)]
 
     return tor_with_displ(Qd, meansd) * pref
 
