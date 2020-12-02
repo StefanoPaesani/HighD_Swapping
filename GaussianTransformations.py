@@ -16,6 +16,8 @@ from strawberryfields.ops import S2gate
 import strawberryfields as sf
 # from strawberryfields.backends.gaussianbackend import *
 
+from thewalrus.quantum import Qmat, Amat, Xmat
+from torontonian_with_displacement import tor_with_displ
 
 import numpy as np
 from copy import copy
@@ -108,7 +110,7 @@ def map_into_StrawberryFields(Displ, Cov, NumModes):
 ##########################################
 
 
-def threshold_detection_prob(gauss_state, det_pattern, cutoff=6):
+def threshold_detection_prob_old(gauss_state, det_pattern, cutoff=6):
     ## Calculates the single photon-detection probability considering threshold detectors.
     ## TODO: This way of calulating all detection patterns scales exponentially with number of modes detected...
     ## better approach is required
@@ -121,6 +123,46 @@ def threshold_detection_prob(gauss_state, det_pattern, cutoff=6):
         out_fock[nonzero_idxs] = pattern
         det_prob = det_prob + gauss_state.fock_prob(out_fock)
     return det_prob
+
+
+def threshold_detection_prob(gauss_state, det_pattern):
+    ## Calculates the single photon-detection probability considering threshold detectors.
+
+    covM = gauss_state.cov()
+    means = np.array(gauss_state.means())
+
+    m = len(covM)
+    assert(covM.shape == (m, m))
+    assert(m % 2 == 0)
+    n = m//2
+
+    Q = np.array(Qmat(covM))
+
+    out_fock = copy(det_pattern)
+    if max(out_fock) > 1:
+        raise ValueError("When using threshold detectors, the detection pattern can contain only 1s or 0s.")
+    nonzero_idxs = [this_mode for this_mode, phot_num in enumerate(out_fock) if phot_num > 0]
+    ia = np.array(nonzero_idxs)
+    ii = list(np.concatenate((ia, ia + n), axis=0))
+
+    # modes without detection for prefactor
+    means0 = np.delete(means, ii)
+
+    Q0 = np.delete(Q, ii, axis=0)
+    Q0 = np.delete(Q0, ii, axis=1)
+    pref1 = np.sqrt(np.linalg.det(Q).real)
+    pref2 = np.exp(means0.conj() @ Q0 @ means0)
+    pref = (pref2 / pref1).real
+
+    # modes with detection
+    meansd = means[ii]
+
+    Qd = Q[np.ix_(ii, ii)]
+
+    return tor_with_displ(Qd, meansd) * pref
+
+
+
 
 
 ##############################

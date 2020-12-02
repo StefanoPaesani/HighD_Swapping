@@ -26,7 +26,8 @@ import numpy as np
 
 
 ######################################################################################################
-def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_resolving_det=True, cutoff=6):
+def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_resolving_det=True, coher_ampl=0., old_PNR_func=False,
+                               cutoff=6):
     """
     Function that simulates the HOM experiment as a function of the squeezing, the BS reflectivity,
     and of the type of single photon detectors used.
@@ -58,7 +59,7 @@ def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_reso
 
     ## Defines the coherent state amplitudes in the input modes.
     ## Because no coherent state is present here, they are all zeros.
-    ampls = np.zeros(nmodes)
+    ampls = np.ones(nmodes) * coher_ampl
 
     ###########################
     ### DEFINE SPDC SOURCES ###
@@ -123,8 +124,12 @@ def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_reso
         ## Calculates the detection probability considering number-resolving detectors.
         det_prob = gauss_state.fock_prob(output_Fock)
     else:
-        ## Calculates the detection probability considering threshold detectors.
-        det_prob = threshold_detection_prob(gauss_state, output_Fock, cutoff=cutoff)
+        if old_PNR_func:
+            ## Calculates the detection probability considering threshold detectors.
+            det_prob = threshold_detection_prob_old(gauss_state, output_Fock, cutoff=cutoff)
+        else:
+            ## Calculates the detection probability considering threshold detectors.
+            det_prob = threshold_detection_prob(gauss_state, output_Fock)
 
     return det_prob
 
@@ -142,9 +147,14 @@ if __name__ == "__main__":
 
     print("\nTest 1: calculate visibility with fixed bs reflectivity and squeezing value.")
     s_par = 0.2
+    ampl = 0.2
     bs_refl = 0.5
-    coinc_prob = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, cutoff=cutoff)
+
+    coinc_prob = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, cutoff=cutoff)
     print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold probability:", coinc_prob)
+
+    coinc_prob_old = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, old_PNR_func=True, cutoff=cutoff)
+    print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold probability:", coinc_prob_old)
 
     #########################################################
     ## Test 2 (HOM fringe): photon counts vs. bs reflectivity
@@ -152,32 +162,67 @@ if __name__ == "__main__":
 
     print("\nTest 2: (HOM fringe): photon counts vs. BS reflectivity.")
     s_par = 0.2
+    ampl = 0.2
     refl_list = np.linspace(0., 1, 101)
-    det_counts_list = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, cutoff=cutoff) for bs_refl in refl_list]
+    det_counts_list = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, cutoff=cutoff) for bs_refl in refl_list]
 
-    plt.plot(refl_list, det_counts_list)
+    det_counts_list_old = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, old_PNR_func=True, cutoff=cutoff) for bs_refl in refl_list]
+
+    plt.plot(refl_list, det_counts_list, label="NewCode")
+    plt.plot(refl_list, det_counts_list_old, label="OldCode")
     plt.xlabel('Beam-splitter reflectivity')
     plt.ylabel('4-Fold counts')
+    plt.legend()
     plt.show()
 
     #########################################################
     ## Test 3: HOM visibility vs squeezing parameter, 50/50 BS
     #########################################################
 
-    def get_HOM_visibility(squeezing_parameter, number_resolving_det=resolv_det, phot_cutoff=cutoff):
-        max_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0, number_resolving_det, cutoff=phot_cutoff)
-        min_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0.5, number_resolving_det, cutoff=phot_cutoff)
+    def get_HOM_visibility(squeezing_parameter, number_resolving_det=resolv_det, coher_ampl=0., old_PNR_func=False, phot_cutoff=cutoff):
+        max_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0, number_resolving_det, coher_ampl=coher_ampl, old_PNR_func=old_PNR_func, cutoff=phot_cutoff)
+        min_prob = Heralded_HOM_exp_simulator(squeezing_parameter, 0.5, number_resolving_det, coher_ampl=coher_ampl, old_PNR_func=old_PNR_func, cutoff=phot_cutoff)
         return (max_prob - 2 * min_prob)/max_prob # see Adcock et al. Nature Comm. (2019)
 
     print("\nTest 3: HOM visibility vs squeezing parameter, 50/50 BS.")
+    ampl = 0.2
     squeeze_list = np.linspace(0.01, 0.5, 101)
-    vis_list = [get_HOM_visibility(s_par, resolv_det) for s_par in squeeze_list]
 
-    plt.plot(np.tanh(squeeze_list), vis_list)
+    vis_list = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl) for s_par in squeeze_list]
+
+    vis_list_old = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl, old_PNR_func=True) for s_par in squeeze_list]
+
+    plt.plot(np.tanh(squeeze_list), vis_list, label="NewCode")
+    plt.plot(np.tanh(squeeze_list), vis_list_old, label="OldCode")
     plt.xlabel(r'Squeezing parameter  $|tanh(s)|$')
     plt.ylabel('HOM visibility')
+    plt.legend()
     plt.show()
 
+
+
+    #########################################################
+    ## Test 3: HOM visibility vs amplitude, 50/50 BS
+    #########################################################
+
+    ampl = 0.2
+
+
+
+    print("\nTest 4: HOM visibility vs amplitude, 50/50 BS.")
+    s_par = 0.1
+    ampl_list = np.linspace(0.001, 0.5, 101)
+
+    vis_list = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl) for ampl in ampl_list]
+
+    vis_list_old = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl, old_PNR_func=True) for ampl in ampl_list]
+
+    plt.plot(ampl_list, vis_list, label="NewCode")
+    plt.plot(ampl_list, vis_list_old, label="OldCode")
+    plt.xlabel(r'Amplitude parameter  $\alpha$')
+    plt.ylabel('HOM visibility')
+    plt.legend()
+    plt.show()
 
 
 
