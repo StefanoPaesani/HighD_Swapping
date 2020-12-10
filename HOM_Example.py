@@ -146,15 +146,15 @@ if __name__ == "__main__":
     ################################################################################
 
     print("\nTest 1: calculate visibility with fixed bs reflectivity and squeezing value.")
-    s_par = 0.2
-    ampl = 0.2
+    s_par = 0.3
+    ampl = 0.
     bs_refl = 0.5
 
     coinc_prob = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, cutoff=cutoff)
-    print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold probability:", coinc_prob)
+    print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold New probability:", coinc_prob)
 
     coinc_prob_old = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, old_PNR_func=True, cutoff=cutoff)
-    print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold probability:", coinc_prob_old)
+    print("Squeezing:", s_par, "; Reflectivity:", bs_refl, "; 4-fold Old probability:", coinc_prob_old)
 
     #########################################################
     ## Test 2 (HOM fringe): photon counts vs. bs reflectivity
@@ -163,7 +163,8 @@ if __name__ == "__main__":
     print("\nTest 2: (HOM fringe): photon counts vs. BS reflectivity.")
     s_par = 0.2
     ampl = 0.2
-    refl_list = np.linspace(0., 1, 101)
+    refl_list = np.linspace(0., 1, 51)
+
     det_counts_list = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, cutoff=cutoff) for bs_refl in refl_list]
 
     det_counts_list_old = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, old_PNR_func=True, cutoff=cutoff) for bs_refl in refl_list]
@@ -186,7 +187,7 @@ if __name__ == "__main__":
 
     print("\nTest 3: HOM visibility vs squeezing parameter, 50/50 BS.")
     ampl = 0.2
-    squeeze_list = np.linspace(0.01, 0.5, 101)
+    squeeze_list = np.linspace(0.01, 0.2, 101)
 
     vis_list = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl) for s_par in squeeze_list]
 
@@ -202,13 +203,13 @@ if __name__ == "__main__":
 
 
     #########################################################
-    ## Test 3: HOM visibility vs amplitude, 50/50 BS
+    ## Test 4: HOM visibility vs amplitude, 50/50 BS
     #########################################################
 
 
     print("\nTest 4: HOM visibility vs amplitude, 50/50 BS.")
-    s_par = 0.1
-    ampl_list = np.linspace(0.001, 0.5, 101)
+    s_par = 0.2
+    ampl_list = np.linspace(0.01, 0.5, 101)
 
     vis_list = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl) for ampl in ampl_list]
 

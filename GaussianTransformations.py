@@ -8,19 +8,17 @@ transformations and states given by the quadrature operators in the order (x_1, 
 Stefano Paesani, Nov. 2020
 """
 
-# We are going to use Xanadu's StrawberryFields module to get photon-counting statistics from Gaussian states.
+# We are going to use Xanadu's StrawberryFields module to encode Gaussian states.
 # The evolution of Gaussian states is pretty slow in StrawberryFields as they decompose the unitary into BSs
 # ans phases with Clements decomposition which is pretty slow, so I am going to use our own code to simulate
 # the evolution in the symplectic formalism, and then import it into StrawberryFields.
-from strawberryfields.ops import S2gate
 import strawberryfields as sf
-# from strawberryfields.backends.gaussianbackend import *
-
-from thewalrus.quantum import Qmat, Amat, Xmat
-from torontonian_with_displacement import tor_with_displ
 
 import numpy as np
 from copy import copy
+
+from threshold_detection import threshold_detection_prob
+
 
 #####################################################################
 ### Functions for Gaussian operations in the symplectic formalism ###
@@ -100,8 +98,7 @@ def map_into_StrawberryFields(Displ, Cov, NumModes):
     ### Maps a Gaussian state into StrawberryFields
     sfBackend = sf.backends.gaussianbackend.GaussianBackend()
     sfBackend.begin_circuit(NumModes)
-    Means = [2 * np.abs(alpha) * np.cos(np.angle(alpha)) for alpha in Displ] + \
-            [2 * np.abs(alpha) * np.sin(np.angle(alpha)) for alpha in Displ]
+    Means = [2 * alpha.real for alpha in Displ] + [2 * alpha.imag for alpha in Displ]
     sfBackend.prepare_gaussian_state(Means, Cov, sfBackend.get_modes())
     return sfBackend.state()
 
@@ -114,58 +111,19 @@ def threshold_detection_prob_old(gauss_state, det_pattern, cutoff=6):
     ## Calculates the single photon-detection probability considering threshold detectors.
     ## TODO: This way of calulating all detection patterns scales exponentially with number of modes detected...
     ## better approach is required
-    out_fock = copy(det_pattern)
-    if max(out_fock) > 1:
+
+    if max(det_pattern) > 1:
         raise ValueError("When using threshold detectors, the detection pattern can contain only 1s or 0s.")
-    nonzero_idxs = [this_mode for this_mode, phot_num in enumerate(out_fock) if phot_num > 0]
-    det_prob = 0
-    for pattern in max_sum_list_nonzeros(len(nonzero_idxs), len(nonzero_idxs), cutoff):
-        out_fock[nonzero_idxs] = pattern
-        det_prob = det_prob + gauss_state.fock_prob(out_fock)
+    nonzero_idxs = [this_mode for this_mode, phot_num in enumerate(det_pattern) if phot_num > 0]
+    if len(nonzero_idxs) > 0:
+        out_fock = copy(det_pattern)
+        det_prob = 0
+        for pattern in max_sum_list_nonzeros(len(nonzero_idxs), len(nonzero_idxs), cutoff):
+            out_fock[nonzero_idxs] = pattern
+            det_prob = det_prob + gauss_state.fock_prob(out_fock)
+    else:
+        det_prob = gauss_state.fock_prob(det_pattern)
     return det_prob
-
-
-def threshold_detection_prob(gauss_state, det_pattern):
-    ## Calculates the single photon-detection probability considering threshold detectors.
-
-    covM = gauss_state.cov()
-    means = np.array(gauss_state.means())
-
-    m = len(covM)
-    assert(covM.shape == (m, m))
-    assert(m % 2 == 0)
-    n = m//2
-
-    Q = np.array(Qmat(covM))
-    Qinv = np.linalg.inv(Q)
-
-    out_fock = copy(det_pattern)
-    if max(out_fock) > 1:
-        raise ValueError("When using threshold detectors, the detection pattern can contain only 1s or 0s.")
-    nonzero_idxs = [this_mode for this_mode, phot_num in enumerate(out_fock) if phot_num > 0]
-    ia = np.array(nonzero_idxs)
-    ii = list(np.concatenate((ia, ia + n), axis=0))
-
-    # modes without detection for prefactor
-    means0 = np.delete(means, ii)
-
-    Q0 = np.delete(Qinv, ii, axis=0)
-    Q0 = np.delete(Q0, ii, axis=1)
-
-    pref1 = np.sqrt(np.linalg.det(Q).real)
-    pref2 = np.exp(means0.conj() @ Q0 @ means0 * (-0.5))
-    pref = (pref2 / pref1).real
-
-    # modes with detection
-    meansd = means[ii]
-
-    Qd = Qinv[np.ix_(ii, ii)]
-
-    return tor_with_displ(Qd, meansd) * pref
-
-
-
-
 
 ##############################
 ### Other useful functions ###
@@ -215,9 +173,12 @@ def max_sum_list_nonzeros(length, min_sum, max_sum):
 
 
 
+
 ##########################################################################################
 if __name__ == "__main__":
-    s_par = 0.2
+    from strawberryfields.ops import S2gate
+
+    s_par = 0.0001
     num_modes = 2
     cov0 = np.identity(2 * num_modes)
     cov = cov0
