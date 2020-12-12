@@ -17,7 +17,7 @@ import strawberryfields as sf
 import numpy as np
 from copy import copy
 
-from threshold_detection import threshold_detection_prob
+
 
 
 #####################################################################
