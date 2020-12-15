@@ -1,5 +1,7 @@
 from GaussianTransformations import *
 from threshold_detection import threshold_detection_prob
+from threshold_detection_new import threshold_detection_prob_new
+
 
 import numpy as np
 
@@ -215,7 +217,8 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
             prob = gauss_state.fock_prob(output_Fock)
         else:
             ## Calculates the detection probability considering threshold detectors.
-            prob = threshold_detection_prob(gauss_state, output_Fock)
+            # prob = threshold_detection_prob(gauss_state, output_Fock)
+            prob = threshold_detection_prob_new(gauss_state, output_Fock)
         prob_list.append(prob)
 
     if normalize_output:
