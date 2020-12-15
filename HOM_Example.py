@@ -24,6 +24,9 @@ Stefano Paesani, Nov. 2020
 from GaussianTransformations import *
 import numpy as np
 
+from threshold_detection import threshold_detection_prob
+from threshold_detection_new import threshold_detection_prob_new
+from threshold_detection_faster import threshold_detection_prob_faster
 
 ######################################################################################################
 def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_resolving_det=True, coher_ampl=0., old_PNR_func=False,
@@ -129,7 +132,9 @@ def Heralded_HOM_exp_simulator(squeezing_parameter, bs_reflectivity, number_reso
             det_prob = threshold_detection_prob_old(gauss_state, output_Fock, cutoff=cutoff)
         else:
             ## Calculates the detection probability considering threshold detectors.
-            det_prob = threshold_detection_prob(gauss_state, output_Fock)
+            # det_prob = threshold_detection_prob(gauss_state, output_Fock)
+            # det_prob = threshold_detection_prob_new(gauss_state, output_Fock)
+            det_prob = threshold_detection_prob_faster(gauss_state.cov(), gauss_state.means(), output_Fock)
 
     return det_prob
 
