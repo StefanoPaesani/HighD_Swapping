@@ -1,11 +1,9 @@
 """
-Functions to simulate photon-counting in GBS with threshold detectors and non-zero amplitude.
+Function to simulate photon-counting in GBS with threshold detectors and non-zero amplitude.
 
-Based on formula 5.144 from Serafini's 'Quantum Continuous Variables', highlighted to us by Juan Miguel Arrazola
+Based on the new formula derived by Jake via conditional probabilities of multigaussian distributions.
+It also uses formula 5.144 from Serafini's 'Quantum Continuous Variables', suggested to us by Juan Miguel Arrazola
 and Nicolas Quesada.
-
-A further ~quadratic speed-up in the polynomial term is likely to be possible (lots of big determinants in the sum could
-be avoided).
 
 Stefano Paesani & Jake F. Bulmer, Dec. 2020
 """
