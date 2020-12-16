@@ -1,8 +1,6 @@
 from GaussianTransformations import *
 
-from threshold_detection import threshold_detection_prob
-from threshold_detection_new import threshold_detection_prob_new
-from threshold_detection_faster import threshold_detection_prob_faster
+from threshold_detection import threshold_detection_prob, threshold_detection_prob_parallel
 
 
 import numpy as np
@@ -76,7 +74,7 @@ def state_projection_unitary(modes, state, num_all_modes, chosen_outmode=0):
 ######################################################################################################
 def HighD_Teleportation_CoherentAncillas_simulator_old(dim, psi, projection_state, herald_pattern, U_out, U_tilde,
                                                    alpha_ancillas=0.1, s_par_photons=0.01, normalize_output=True,
-                                                   number_resolving_det=False):
+                                                   number_resolving_det=False, parallelized=False):
     """
     Function that simulates the high-dimensional teleportation protocol using weak-coherent states with ancillas, and
     threshold detectors.
@@ -219,8 +217,10 @@ def HighD_Teleportation_CoherentAncillas_simulator_old(dim, psi, projection_stat
             prob = gauss_state.fock_prob(output_Fock)
         else:
             ## Calculates the detection probability considering threshold detectors.
-            prob = threshold_detection_prob(gauss_state, output_Fock)
-            # prob = threshold_detection_prob_new(gauss_state, output_Fock)
+            if parallelized:
+                prob = threshold_detection_prob_parallel(gauss_state.cov(), gauss_state.means(), output_Fock)
+            else:
+                prob = threshold_detection_prob_(gauss_state.cov(), gauss_state.means(), output_Fock)
         prob_list.append(prob)
 
     if normalize_output:
@@ -377,8 +377,8 @@ def HighD_Teleportation_CoherentAncillas_simulator_new(dim, psi, projection_stat
             prob = gauss_state.fock_prob(output_Fock)
         else:
             ## Calculates the detection probability considering threshold detectors.
-            # prob = threshold_detection_prob(gauss_state, output_Fock)
-            # prob = threshold_detection_prob_new(gauss_state, output_Fock)
+            # prob = threshold_detection_prob(gauss_state.cov(), gauss_state.means(), output_Fock)
+            # prob = threshold_detection_prob_new(gauss_state.cov(), gauss_state.means(), output_Fock)
             prob = threshold_detection_prob_faster(gauss_state.cov(), gauss_state.means(), output_Fock)
         prob_list.append(prob)
 
