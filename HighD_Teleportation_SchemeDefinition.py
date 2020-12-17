@@ -198,7 +198,6 @@ def HighD_Teleportation_CoherentAncillas_simulator_old(dim, psi, projection_stat
     gauss_state = map_into_StrawberryFields(ampls, cov_mat, nmodes)
 
     ## Define in which modes we want t observe a coincidence detection.
-    ## In this case we are looking for a 4-fold coincidence detection with a photon in all four modes.
     ## Repeated elements would represent multiple photons in the same mode. I.e. [0, 0, 2]
     ## would indicate two photons in mode 0 and one in mode 2.
     herald_modes = [multiport_modes[ix] for ix in herald_pattern]
@@ -220,7 +219,7 @@ def HighD_Teleportation_CoherentAncillas_simulator_old(dim, psi, projection_stat
             if parallelized:
                 prob = threshold_detection_prob_parallel(gauss_state.cov(), gauss_state.means(), output_Fock)
             else:
-                prob = threshold_detection_prob_(gauss_state.cov(), gauss_state.means(), output_Fock)
+                prob = threshold_detection_prob(gauss_state.cov(), gauss_state.means(), output_Fock)
         prob_list.append(prob)
 
     if normalize_output:

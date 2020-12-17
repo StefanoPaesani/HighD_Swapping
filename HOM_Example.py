@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     print("\nTest 1: calculate visibility with fixed bs reflectivity and squeezing value.")
     s_par = 0.3
-    ampl = 0.
+    ampl = 0.2
     bs_refl = 0.5
 
     coinc_prob = Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, cutoff=cutoff)
@@ -166,18 +166,19 @@ if __name__ == "__main__":
 
     print("\nTest 2: (HOM fringe): photon counts vs. BS reflectivity.")
     s_par = 0.2
-    ampl = 0.2
+    ampl = 0.15
     refl_list = np.linspace(0., 1, 51)
 
     det_counts_list = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, cutoff=cutoff) for bs_refl in refl_list]
 
     det_counts_list_old = [Heralded_HOM_exp_simulator(s_par, bs_refl, resolv_det, coher_ampl=ampl, old_PNR_func=True, cutoff=cutoff) for bs_refl in refl_list]
 
-    plt.plot(refl_list, det_counts_list, label="NewCode")
-    plt.plot(refl_list, det_counts_list_old, label="OldCode")
+    plt.plot(refl_list, det_counts_list, lw=3, label="NewCode")
+    plt.plot(refl_list, det_counts_list_old, 'r--', label="LoopHafn+Thresh.")
     plt.xlabel('Beam-splitter reflectivity')
     plt.ylabel('4-Fold counts')
     plt.legend()
+    plt.title(r'$\alpha$:'+str(ampl)+'; s_par:'+str(s_par))
     plt.show()
 
     #########################################################
@@ -191,16 +192,17 @@ if __name__ == "__main__":
 
     print("\nTest 3: HOM visibility vs squeezing parameter, 50/50 BS.")
     ampl = 0.2
-    squeeze_list = np.linspace(0.01, 0.2, 101)
+    squeeze_list = np.linspace(0.01, 0.4, 101)
 
     vis_list = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl) for s_par in squeeze_list]
 
     vis_list_old = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl, old_PNR_func=True) for s_par in squeeze_list]
 
-    plt.plot(np.tanh(squeeze_list), vis_list, label="NewCode")
-    plt.plot(np.tanh(squeeze_list), vis_list_old, label="OldCode")
+    plt.plot(np.tanh(squeeze_list), vis_list, lw=3, label="NewCode")
+    plt.plot(np.tanh(squeeze_list), vis_list_old, 'r--', label="LoopHafn+Thresh.")
     plt.xlabel(r'Squeezing parameter  $|tanh(s)|$')
     plt.ylabel('HOM visibility')
+    plt.title(r'$\alpha$:'+str(ampl))
     plt.legend()
     plt.show()
 
@@ -213,15 +215,16 @@ if __name__ == "__main__":
 
     print("\nTest 4: HOM visibility vs amplitude, 50/50 BS.")
     s_par = 0.2
-    ampl_list = np.linspace(0.01, 0.5, 101)
+    ampl_list = np.linspace(0.01, 0.4, 101)
 
     vis_list = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl) for ampl in ampl_list]
 
     vis_list_old = [get_HOM_visibility(s_par, resolv_det, coher_ampl=ampl, old_PNR_func=True) for ampl in ampl_list]
 
-    plt.plot(ampl_list, vis_list, label="NewCode")
-    plt.plot(ampl_list, vis_list_old, label="OldCode")
+    plt.plot(ampl_list, vis_list, lw=3, label="NewCode")
+    plt.plot(ampl_list, vis_list_old, 'r--', label="LoopHafn+Thresh.")
     plt.xlabel(r'Amplitude parameter  $\alpha$')
+    plt.title('s_par:'+str(s_par))
     plt.ylabel('HOM visibility')
     plt.legend()
     plt.show()
