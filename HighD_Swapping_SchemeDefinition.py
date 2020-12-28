@@ -2,8 +2,8 @@ from GaussianTransformations import *
 
 from threshold_detection import threshold_detection_prob, threshold_detection_prob_parallel
 
-
 import numpy as np
+from itertools import product
 
 
 def dft(modes, num_all_modes):
@@ -72,11 +72,13 @@ def state_projection_unitary(modes, state, num_all_modes, chosen_outmode=0):
 
 
 ######################################################################################################
-def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, herald_pattern, U_out, U_tilde,
-                                                   alpha_ancillas=0.1, s_par_photons=0.01, normalize_output=True,
-                                                   number_resolving_det=False, parallelized=False):
+ancilla_types_list = ['WeakCoherent', 'TMS', 'HeraldedPhoton']
+
+def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
+                                        ancillas_param=0.1, s_par_photons=0.01, ancilla_type='WC',
+                                        number_resolving_det=False, parallelized=False):
     """
-    Function that simulates the high-dimensional teleportation protocol using weak-coherent states with ancillas, and
+    Function that simulates the high-dimensional teleportation protocol using Gaussian states for ancillas, and
     threshold detectors.
 
     :return: The probability of the projective measurement given the teleported state and the heralding pattern.
@@ -86,17 +88,32 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
     ### INITALISATION ###
     #####################
 
-    nmodes = dim * (dim + 1) + 2
+    if ancilla_type not in ancilla_types_list:
+        raise ValueError('Ancilla_type must be one of:', ancilla_types_list)
 
-    heralding_input_modes = [0]
-    input_state_modes = list(range(1, dim + 1))
-    ancilla_modes = [list(range((i + 1) * dim + 1, (i + 2) * dim + 1)) for i in range(dim - 2)]
+    nmodes = dim ** 2 + 3 * dim - 1
+
+    signal_alice_modes = list(range(dim))
+    # print('signal_alice_modes', signal_alice_modes)
+    idler_alice_modes = list(range(dim, 2 * dim))
+    # print('idler_alice_modes', idler_alice_modes)
+    heralding_ancilla_modes = list(range(2 * dim, 3 * dim - 2))
+    # print('heralding_ancilla_modes', heralding_ancilla_modes)
+    ancilla_modes = [list(range((i + 2) * dim + 1, (i + 3) * dim + 1)) for i in range(dim - 2)]
+    # print('ancilla_modes', ancilla_modes)
     all_ancilla_modes = [mode for submodes in ancilla_modes for mode in submodes]
-    bellpair_todft_modes = list(range(dim * (dim - 1) + 1, dim ** 2 + 1))
-    extra_Utilde_modes = [dim ** 2 + 1]
-    teleportation_modes = list(range(dim ** 2 + 2, nmodes))
+    # print('all_ancilla_modes', all_ancilla_modes)
+    idler_bob_modes = list(range(dim ** 2 + dim - 2, dim ** 2 + 2 * dim - 2))
+    # print('idler_bob_modes', idler_bob_modes)
+    signal_bob_modes = list(range(dim ** 2 + 2 * dim - 2, dim ** 2 + 3 * dim - 2))
+    # print('signal_bob_modes', signal_bob_modes)
+    extra_Utilde_modes = [dim ** 2 + 3 * dim - 2]
+    # print('extra_Utilde_modes', extra_Utilde_modes)
 
-    multiport_modes = input_state_modes + all_ancilla_modes + bellpair_todft_modes
+    multiport_modes = idler_alice_modes + all_ancilla_modes + idler_bob_modes
+
+    init_mode_ix_ancillas = 0
+    init_anc_modes = [these_modes[init_mode_ix_ancillas] for these_modes in ancilla_modes]
 
     ## Initialises the initial covariance matrix of the Gaussian state to be the identity,
     ## meaning we start with vacuum in all modes.
@@ -109,25 +126,49 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
     ## Defines the coherent state amplitudes in the input modes.
     ## Because no coherent state is present here, they are all zeros.
     ampls = np.zeros(nmodes)
-    ampls[all_ancilla_modes] = np.ones(len(all_ancilla_modes)) * alpha_ancillas / np.sqrt(dim)
+    if ancilla_type == 'WeakCoherent':
+        ampls[init_anc_modes] = np.ones(len(init_anc_modes)) * ancillas_param
+        herald_ancilla_pattern = []
+    # print('ampls0:', ampls)
 
     ###########################
     ### DEFINE SPDC SOURCES ###
     ###########################
 
-    ## Defines the SPDC source generating the heralded single photon with the input state.
-    chosen_in_ix = 0
-    chosen_in_mode = input_state_modes[chosen_in_ix]
-    input_source = get_tms_sym(s_par_photons, phi=0, Mode1=heralding_input_modes[0], Mode2=chosen_in_mode,
-                               NumModes=nmodes)
-
-    ## Defines the second SPDC source that generate the high-dimensional Bell state.
-    entanglement_sources = np.identity(2 * nmodes)
-
+    ## Defines the second SPDC source that generate the high-dimensional Bell state for Alice.
+    ent_sources_alice = np.identity(2 * nmodes)
     for i in range(dim):
-        this_source = get_tms_sym(s_par_photons, phi=0, Mode1=bellpair_todft_modes[i], Mode2=teleportation_modes[i],
+        this_source = get_tms_sym(s_par_photons, phi=0, Mode1=signal_alice_modes[i], Mode2=idler_alice_modes[i],
                                   NumModes=nmodes)
-        entanglement_sources = entanglement_sources @ this_source
+        ent_sources_alice = ent_sources_alice @ this_source
+
+    ## Defines the second SPDC source that generate the high-dimensional Bell state for Bob.
+    ent_sources_bob = np.identity(2 * nmodes)
+    for i in range(dim):
+        this_source = get_tms_sym(s_par_photons, phi=0, Mode1=signal_bob_modes[i], Mode2=idler_bob_modes[i],
+                                  NumModes=nmodes)
+        ent_sources_bob = ent_sources_bob @ this_source
+
+    ## Defines SPDC sources for the ancillas.
+    sources_ancillas = np.identity(2 * nmodes)
+
+    if ancilla_type == 'HeraldedPhoton':
+        herald_ancilla_pattern = heralding_ancilla_modes
+        for i in range(dim - 2):
+            this_source = get_tms_sym(ancillas_param, phi=0, Mode1=heralding_ancilla_modes[i], Mode2=init_anc_modes[i],
+                                      NumModes=nmodes)
+            sources_ancillas = sources_ancillas @ this_source
+
+    elif ancilla_type == 'TMS':
+        herald_ancilla_pattern = []
+        if not (dim % 2) == 0:
+            raise ValueError('Dimension needs to be even when using TMS for ancillas')
+        for i in range(int((dim - 2) / 2)):
+            # print('i:', i, init_anc_modes, int(dim/2), list(range(int(dim/2))))
+            this_source = get_tms_sym(ancillas_param, phi=0, Mode1=init_anc_modes[2 * i],
+                                      Mode2=init_anc_modes[2 * i + 1],
+                                      NumModes=nmodes)
+            sources_ancillas = sources_ancillas @ this_source
 
     ############################
     ### DEFINE LINEAR OPTICS ###
@@ -136,38 +177,63 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
     ## Defines the multiport interferometer
     multiport_U = np.identity(nmodes, dtype=np.cdouble)
     for i in range(dim):
-        these_modes = [input_state_modes[i]] + [this_anc_modes[i] for this_anc_modes in ancilla_modes] + \
-                      [bellpair_todft_modes[i]]
+        these_modes = [idler_alice_modes[i]] + [this_anc_modes[i] for this_anc_modes in ancilla_modes] + \
+                      [idler_bob_modes[i]]
         this_dft = dft(these_modes, nmodes)
         multiport_U = this_dft @ multiport_U
+    # print('\nmultiport_U:')
+    # print(multiport_U)
 
-    ## Define unitary to prepare the input state
-    if len(psi) != dim:
-        raise ValueError('The length of state vector needs to be same as dimensionality')
-    in_state_U = state_preparation_unitary(input_state_modes, psi, nmodes, chosen_inmode=chosen_in_ix)
+    ## Define unitaries to prepare the input states for the ancillas
+    prep_U_ancillas = np.identity(nmodes, dtype=np.cdouble)
+    prep_vec = np.ones(dim) / np.sqrt(dim)
+    for anc_modes in ancilla_modes:
+        this_U = state_preparation_unitary(anc_modes, prep_vec, nmodes, chosen_inmode=init_mode_ix_ancillas)
+        prep_U_ancillas = this_U @ prep_U_ancillas
+    # print('\nprep_U_ancillas:')
+    # print(prep_U_ancillas)
 
     ## U tilde unitary
     dim_utilde1, dim_utilde2 = np.shape(U_tilde)
     if dim_utilde1 != (dim + 1) or dim_utilde1 != dim_utilde2:
         raise ValueError('U_tilde needs to be a (dim+1)x(dim+1) square matrix')
     U_tilde_mat = np.identity(nmodes, dtype=np.cdouble)
-    modes_Utilde = bellpair_todft_modes + extra_Utilde_modes
+    modes_Utilde = idler_bob_modes + extra_Utilde_modes
     U_tilde_mat[np.ix_(modes_Utilde, modes_Utilde)] = U_tilde
+    # print('\nU_tilde:')
+    # print(U_tilde_mat)
 
     ## Unitary U at the output
     dim_uout1, dim_uout2 = np.shape(U_out)
     if dim_uout1 != dim or dim_uout1 != dim_uout2:
         raise ValueError('U_out needs to be a (dim)x(dim) square matrix')
     U_out_mat = np.identity(nmodes, dtype=np.cdouble)
-    U_out_mat[np.ix_(teleportation_modes, teleportation_modes)] = U_out
+    U_out_mat[np.ix_(signal_bob_modes, signal_bob_modes)] = U_out
+    # print('\nU_out:')
+    # print(U_out_mat)
 
-    ## Unitary for projective measurement
-    chosen_out_ix = 0
-    chosen_out_mode = teleportation_modes[chosen_out_ix]
-    U_meas = state_projection_unitary(teleportation_modes, projection_state, nmodes, chosen_outmode=chosen_out_ix)
+    ## Unitary for projective Alice measurement
+    dim_ua1, dim_ua2 = np.shape(U_a)
+    if dim_ua1 != dim or dim_ua1 != dim_ua2:
+        raise ValueError('U_a needs to be a (dim)x(dim) square matrix')
+    U_meas_alice = np.identity(nmodes, dtype=np.cdouble)
+    modes_Ua = signal_alice_modes
+    U_meas_alice[np.ix_(modes_Ua, modes_Ua)] = U_a
+    # print('\nU_a:')
+    # print(U_meas_alice)
+
+    ## Unitary for projective Bob measurement
+    dim_ub1, dim_ub2 = np.shape(U_b)
+    if dim_ub1 != dim or dim_ub1 != dim_ub2:
+        raise ValueError('U_b needs to be a (dim)x(dim) square matrix')
+    U_meas_bob = np.identity(nmodes, dtype=np.cdouble)
+    modes_Ua = signal_bob_modes
+    U_meas_bob[np.ix_(modes_Ua, modes_Ua)] = U_b
+    # print('\nU_b:')
+    # print(U_meas_bob)
 
     ## Calculate the total linear-optical unitary.
-    LO_unitary = U_meas @ U_out_mat @ multiport_U @ U_tilde_mat @ in_state_U
+    LO_unitary = U_meas_alice @ U_meas_bob @ U_out_mat @ multiport_U @ U_tilde_mat @ prep_U_ancillas
 
     ## Gets the linear-optical transformation in the symplectic form.
     LO_unitary_sym = get_unitary_sym(LO_unitary)
@@ -177,7 +243,7 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
     ###############################################
 
     ## Obtains the total Gaussian transformation matrix in the symplectic formalism
-    sym_transf = LO_unitary_sym @ entanglement_sources @ input_source
+    sym_transf = LO_unitary_sym @ sources_ancillas @ ent_sources_bob @ ent_sources_alice
 
     #############################
     ### EVOLVE GAUSSIAN STATE ###
@@ -188,6 +254,7 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
 
     ## Obtains the amplitudes of the output Gaussian state
     ampls = LO_unitary @ ampls
+    # print('ampls1:', ampls)
 
     ###############################
     ### SINGLE PHOTON DETECTION ###
@@ -200,17 +267,17 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
     ## Define in which modes we want t observe a coincidence detection.
     ## Repeated elements would represent multiple photons in the same mode. I.e. [0, 0, 2]
     ## would indicate two photons in mode 0 and one in mode 2.
-    herald_modes = [multiport_modes[ix] for ix in herald_pattern]
+    herald_multiport_modes = [multiport_modes[ix] for ix in herald_pattern]
 
-    if normalize_output:
-        detected_modes_list = [heralding_input_modes + herald_modes + [out_mode] for out_mode in teleportation_modes]
-    else:
-        detected_modes_list = [heralding_input_modes + herald_modes + [chosen_out_mode]]
+    detected_modes_list = [herald_ancilla_pattern + herald_multiport_modes + [out_alice, out_bob]
+                           for (out_alice, out_bob) in product(signal_alice_modes, signal_bob_modes)]
 
     prob_list = []
+    # print('\nSTART Detecting')
     for detected_modes in detected_modes_list:
         ## convert the detection configuration into a Fock state
         output_Fock = conf_to_Fock(detected_modes, nmodes)
+        # print('Det:', detected_modes, 'Fock:', output_Fock)
         if number_resolving_det:
             ## Calculates the detection probability considering number-resolving detectors.
             prob = gauss_state.fock_prob(output_Fock)
@@ -220,13 +287,11 @@ def HighD_Teleportation_CoherentAncillas_simulator(dim, psi, projection_state, h
                 prob = threshold_detection_prob_parallel(gauss_state.cov(), gauss_state.means(), output_Fock)
             else:
                 prob = threshold_detection_prob(gauss_state.cov(), gauss_state.means(), output_Fock)
+
         prob_list.append(prob)
 
-    if normalize_output:
-        det_prob = prob_list[chosen_out_ix] / sum(prob_list)
-        succ_prob = prob_list[chosen_out_ix]
-        return det_prob, succ_prob
-    else:
-        det_prob = prob_list[0]
-        return det_prob,
+    meas_probs = np.array(prob_list)
+    tot_prob = np.sum(meas_probs)
+    meas_probs_norm = meas_probs / tot_prob
 
+    return meas_probs_norm, tot_prob
