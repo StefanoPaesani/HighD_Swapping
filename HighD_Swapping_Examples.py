@@ -67,10 +67,13 @@ if __name__ == "__main__":
     U_tilde = np.array([[-1 if j == i else +1 for j in range(dim + 1)] for i in range(dim + 1)]) / np.sqrt(dim + 1)
     U_out = np.identity(dim)
 
-    # anc_type = 'WeakCoherent'
-    anc_type = 'HeraldedPhoton'
-    alpha = 0.1
+    anc_type = 'WeakCoherent'
+    # anc_type = 'HeraldedPhoton'
+    alpha = 0.2
     normalized_prob = True
+
+    transmission = 1.
+    dark_count_prob = 0.
 
     herald_pattern = np.array([0, 1, 2]) + 0 * dim
 
@@ -80,11 +83,13 @@ if __name__ == "__main__":
     succ_prob = 0
     for (U_a, U_b) in SATWAP_Umeas_list:
         this_prob, this_succ_prob = HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
-                                 ancillas_param=alpha,
-                                 s_par_photons=0.01,
-                                 ancilla_type=anc_type,
-                                 number_resolving_det=False,  # TODO: change this False,
-                                 parallelized=False)
+                                                             ancillas_param=alpha,
+                                                             s_par_photons=0.01,
+                                                             transm=transmission,
+                                                             dark_counts_prob=dark_count_prob,
+                                                             ancilla_type=anc_type,
+                                                             number_resolving_det=False,
+                                                             parallelized=False)
 
         simul_probs.append(this_prob)
         succ_prob += this_succ_prob
@@ -164,7 +169,6 @@ if __name__ == "__main__":
     # full_saving_name = os.path.join(DataSavingFolder, filename) + ".csv"
     # np.savetxt(full_saving_name, SATWAP_scan_results_array, delimiter=",")
     # print('\nResults saved in: '+full_saving_name)
-
 
     #########################################################
     ## Test 4: SATWAP - dim=4
@@ -280,7 +284,6 @@ if __name__ == "__main__":
     # np.savetxt(full_saving_name, SATWAP_scan_results_array, delimiter=",")
     # print('\nResults saved in: '+full_saving_name)
 
-
     #########################################################
     ## Test 6: SATWAP - dim=2 - Test performance against amplitude and squeezing parameters
     #########################################################
@@ -337,13 +340,11 @@ if __name__ == "__main__":
     # np.savetxt(full_saving_name, SATWAP_scan_results_array, delimiter=",")
     # print('\nResults saved in: '+full_saving_name)
 
-
-
     #########################################################
-    ## Test 7: SATWAP - dim=3 - Test QBER performance against amplitude and squeezing parameters
+    ## Test 7: QBER - dim=3 - Test QBER performance against amplitude and squeezing parameters
     #########################################################
 
-    # print('\nTest7: SATWAP - dim=3 - Test performance against amplitude and squeezing parameters')
+    # print('\nTest7: QBER - dim=3 - Test performance against amplitude and squeezing parameters')
     #
     #
     # dim = 3
@@ -391,10 +392,8 @@ if __name__ == "__main__":
     # np.savetxt(full_saving_name, QBER_scan_results_array, delimiter=",")
     # print('\nResults saved in: '+full_saving_name)
 
-
-
     #########################################################
-    ## Test 8: SATWAP - dim=4 - Test QBER performance against amplitude and squeezing parameters
+    ## Test 8: QBER - dim=4 - Test QBER performance against amplitude and squeezing parameters
     #########################################################
 
     # print('\nTest8: SATWAP - dim=4 - Test performance against amplitude and squeezing parameters')
@@ -451,3 +450,175 @@ if __name__ == "__main__":
     # full_saving_name = os.path.join(DataSavingFolder, filename) + ".csv"
     # np.savetxt(full_saving_name, SATWAP_scan_results_array, delimiter=",")
     # print('\nResults saved in: '+full_saving_name)
+
+    #########################################################
+    ## Test 9: QBER - dim=3 - Test QBER performance, including noises, against amplitude and squeezing parameters
+    #########################################################
+
+    # print('\nTest9: QBER - dim=3 - Test performance, including noises, against amplitude and squeezing parameters')
+    #
+    # dim = 3
+    # U_tilde = np.array([[-1 if j == i else +1 for j in range(dim + 1)] for i in range(dim + 1)]) / np.sqrt(dim + 1)
+    # U_out = np.identity(dim)
+    #
+    # anc_type = 'WeakCoherent'
+    # # anc_type = 'HeraldedPhoton'
+    #
+    # herald_pattern = np.array([0, 1, 2]) + 0 * dim
+    #
+    # SATWAP_Umeas_list = get_SATWAP_AB_matrices_list(dim)
+    #
+    # num_alphas_scan = 200
+    # num_s_par_scan = 200
+    # alpha_list = np.linspace(0.01, 2.25, num_alphas_scan)
+    # spar_list = np.linspace(0.01, 4, num_s_par_scan)
+    #
+    # U_a = np.identity(dim)
+    # U_b = np.identity(dim)
+    #
+    # transm = 1.
+    # dark_count_prob = 0.
+    #
+    # QBER_scan_results = []
+    # for alpha in alpha_list:
+    #     print('Doing alpha:', alpha)
+    #     for s_par in spar_list:
+    #         simul_probs_list, succ_prob = HighD_Swapping_simulator_withnoises(dim, U_a, U_b, herald_pattern,
+    #                                                                           U_out, U_tilde,
+    #                                                                           ancillas_param=alpha,
+    #                                                                           s_par_photons=s_par,
+    #                                                                           transm=transm,
+    #                                                                           dark_count_prob=dark_count_prob,
+    #                                                                           ancilla_type=anc_type,
+    #                                                                           number_resolving_det=False,
+    #                                                                           parallelized=False)
+    #
+    #         simul_probs = np.array(simul_probs_list)
+    #         simul_probs_mat = np.reshape(simul_probs, (dim, dim))
+    #         this_fid = sum(np.sqrt(np.diag(simul_probs_mat) / dim)) ** 2
+    #         QBER_scan_results.append(np.array([alpha, s_par, this_fid, succ_prob]))
+    #
+    # QBER_scan_results_array = np.array(QBER_scan_results)
+    #
+    # ###################### SAVE DATA
+    # filename = 'QBERscan_withNoise_dim' + str(dim) + '_numpoints' + str(num_s_par_scan * num_alphas_scan) \
+    #            + '_trasm' + str(transm) + '_DCprob' + str(dark_count_prob)
+    # full_saving_name = os.path.join(DataSavingFolder, filename) + ".csv"
+    # np.savetxt(full_saving_name, QBER_scan_results_array, delimiter=",")
+    # print('\nResults saved in: ' + full_saving_name)
+
+    #########################################################
+    ## Test 10: QBER - dim=4 - Test QBER performance, including noises, against amplitude and squeezing parameters
+    #########################################################
+
+    # print('\nTest10: QBER - dim=4 - Test performance, including noises, against amplitude and squeezing parameters')
+    #
+    # dim = 4
+    #
+    # U_tilde = np.ones((dim + 1, dim + 1))
+    # for i in range(dim):
+    #     U_tilde[i, i] = -2.
+    #     U_tilde[dim, i] = np.sqrt(2)
+    #     U_tilde[i, dim] = np.sqrt(2)
+    # U_tilde[dim, dim] = -1.
+    # U_tilde = U_tilde / 3.
+    #
+    # U_out = np.identity(dim)
+    #
+    # # anc_type = 'WeakCoherent'
+    # anc_type = 'TMS'
+    # # anc_type = 'HeraldedPhoton'
+    #
+    # herald_pattern = np.array([0, 1, 2, 3]) + 0 * dim
+    #
+    # num_alphas_scan = 200
+    # num_s_par_scan = 200
+    #
+    # alpha_list = np.linspace(0.06, 2, num_alphas_scan)
+    # spar_list = np.linspace(0.02, 2, num_s_par_scan)
+    #
+    # U_a = np.identity(dim)
+    # U_b = np.identity(dim)
+    #
+    # QBER_scan_results = []
+    # for alpha in alpha_list:
+    #     print('Doing alpha:', alpha)
+    #     for s_par in spar_list:
+    #         simul_probs_list, succ_prob = HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern,
+    #                                                                     U_out, U_tilde,
+    #                                                                     ancillas_param=alpha,
+    #                                                                     s_par_photons=s_par,
+    #                                                                     ancilla_type=anc_type,
+    #                                                                     number_resolving_det=False,
+    #                                                                     parallelized=False)
+    #
+    #         simul_probs = np.array(simul_probs_list)
+    #         simul_probs_mat = np.reshape(simul_probs, (dim, dim))
+    #         this_fid = sum(np.sqrt(np.diag(simul_probs_mat)/dim))**2
+    #         QBER_scan_results.append(np.array([alpha, s_par, this_fid, succ_prob]))
+    #
+    # SATWAP_scan_results_array = np.array(QBER_scan_results)
+    #
+    # ###################### SAVE DATA
+    # filename = 'QBERscan_withNoise_dim' + str(dim) + '_numpoints' + str(num_s_par_scan * num_alphas_scan) \
+    #            + '_trasm' + str(transm) + '_DCprob' + str(dark_count_prob)
+    # full_saving_name = os.path.join(DataSavingFolder, filename) + ".csv"
+    # np.savetxt(full_saving_name, SATWAP_scan_results_array, delimiter=",")
+    # print('\nResults saved in: '+full_saving_name)
+
+    #########################################################
+    ## Test 11: QBER - dim=2 - Test performance against amplitude and squeezing parameters
+    #########################################################
+
+    # print('\nTest11: QBER - dim=2 - Test performance against amplitude and squeezing parameters')
+    #
+    # dim = 2
+    #
+    # U_tilde = np.identity(dim+1)
+    # U_out = np.identity(dim)
+    #
+    # # anc_type = 'WeakCoherent'
+    # # anc_type = 'TMS'
+    # anc_type = 'HeraldedPhoton'
+    #
+    # herald_pattern = np.array([0, 1]) + 0 * dim
+    #
+    # num_s_par_scan = 200
+    # spar_list = np.linspace(0.02, 2, num_s_par_scan)
+    #
+    # alpha = 0.2
+    #
+    # U_a = np.identity(dim)
+    # U_b = np.identity(dim)
+    #
+    # transm = 0.4
+    # dark_count_prob = 0.
+    #
+    # QBER_scan_results = []
+    # for s_par in spar_list:
+    #     print('Doing s_par:', s_par)
+    #
+    #     simul_probs_list, succ_prob = HighD_Swapping_simulator_withnoises(dim, U_a, U_b, herald_pattern,
+    #                                                                       U_out, U_tilde,
+    #                                                                       ancillas_param=alpha,
+    #                                                                       s_par_photons=s_par,
+    #                                                                       transm=transm,
+    #                                                                       dark_counts_prob=dark_count_prob,
+    #                                                                       ancilla_type=anc_type,
+    #                                                                       number_resolving_det=False,
+    #                                                                       parallelized=False)
+    #
+    #     simul_probs = abs(np.array(simul_probs_list))
+    #     simul_probs_mat = np.reshape(simul_probs, (dim, dim))
+    #     this_fid = sum(np.sqrt(np.diag(simul_probs_mat) / dim)) ** 2
+    #     print(this_fid, succ_prob, simul_probs)
+    #     QBER_scan_results.append(np.array([alpha, s_par, this_fid, succ_prob]))
+    #
+    # QBER_scan_results_array = np.array(QBER_scan_results)
+    #
+    # ###################### SAVE DATA
+    # filename = 'QBERscan_withNoise_dim' + str(dim) + '_numpoints' + str(num_s_par_scan) \
+    #            + '_trasm' + str(transm) + '_DCprob' + str(dark_count_prob)
+    # full_saving_name = os.path.join(DataSavingFolder, filename) + ".csv"
+    # np.savetxt(full_saving_name, QBER_scan_results_array, delimiter=",")
+    # print('\nResults saved in: ' + full_saving_name)

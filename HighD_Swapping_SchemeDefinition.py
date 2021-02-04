@@ -3,7 +3,7 @@ from GaussianTransformations import *
 from threshold_detection import threshold_detection_prob, threshold_detection_prob_parallel
 
 import numpy as np
-from itertools import product
+from itertools import product, chain, combinations
 
 
 def dft(modes, num_all_modes):
@@ -71,15 +71,24 @@ def state_projection_unitary(modes, state, num_all_modes, chosen_outmode=0):
     return temp_U.T.conj()
 
 
+def powerset(iterable):
+    "powerset([1,2,3]) --> () (1,) (2,) (3,) (1,2) (1,3) (2,3) (1,2,3)"
+    s = list(iterable)
+    return chain.from_iterable(combinations(s, r) for r in range(len(s) + 1))
+
+
 ######################################################################################################
 ancilla_types_list = ['WeakCoherent', 'TMS', 'HeraldedPhoton']
 
+
 def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
-                                        ancillas_param=0.1, s_par_photons=0.01, ancilla_type='WC',
-                                        number_resolving_det=False, parallelized=False):
+                             ancillas_param=0.1, s_par_photons=0.01,
+                             dark_counts_prob=0., transm=1., xtalk_par=0.,
+                             normalized=True,
+                             ancilla_type='WC', number_resolving_det=False, parallelized=False):
     """
     Function that simulates the high-dimensional teleportation protocol using Gaussian states for ancillas, and
-    threshold detectors.
+    threshold detectors. Now including possible noises.
 
     :return: The probability of the projective measurement given the teleported state and the heralding pattern.
     """
@@ -109,6 +118,9 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
     # print('signal_bob_modes', signal_bob_modes)
     extra_Utilde_modes = [dim ** 2 + 3 * dim - 2]
     # print('extra_Utilde_modes', extra_Utilde_modes)
+
+    exp_modes = list(range(nmodes))
+    loss_modes = list(range(nmodes, 2 * nmodes))
 
     multiport_modes = idler_alice_modes + all_ancilla_modes + idler_bob_modes
 
@@ -181,8 +193,6 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
                       [idler_bob_modes[i]]
         this_dft = dft(these_modes, nmodes)
         multiport_U = this_dft @ multiport_U
-    # print('\nmultiport_U:')
-    # print(multiport_U)
 
     ## Define unitaries to prepare the input states for the ancillas
     prep_U_ancillas = np.identity(nmodes, dtype=np.cdouble)
@@ -190,8 +200,6 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
     for anc_modes in ancilla_modes:
         this_U = state_preparation_unitary(anc_modes, prep_vec, nmodes, chosen_inmode=init_mode_ix_ancillas)
         prep_U_ancillas = this_U @ prep_U_ancillas
-    # print('\nprep_U_ancillas:')
-    # print(prep_U_ancillas)
 
     ## U tilde unitary
     dim_utilde1, dim_utilde2 = np.shape(U_tilde)
@@ -200,8 +208,6 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
     U_tilde_mat = np.identity(nmodes, dtype=np.cdouble)
     modes_Utilde = idler_bob_modes + extra_Utilde_modes
     U_tilde_mat[np.ix_(modes_Utilde, modes_Utilde)] = U_tilde
-    # print('\nU_tilde:')
-    # print(U_tilde_mat)
 
     ## Unitary U at the output
     dim_uout1, dim_uout2 = np.shape(U_out)
@@ -209,8 +215,6 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
         raise ValueError('U_out needs to be a (dim)x(dim) square matrix')
     U_out_mat = np.identity(nmodes, dtype=np.cdouble)
     U_out_mat[np.ix_(signal_bob_modes, signal_bob_modes)] = U_out
-    # print('\nU_out:')
-    # print(U_out_mat)
 
     ## Unitary for projective Alice measurement
     dim_ua1, dim_ua2 = np.shape(U_a)
@@ -219,8 +223,6 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
     U_meas_alice = np.identity(nmodes, dtype=np.cdouble)
     modes_Ua = signal_alice_modes
     U_meas_alice[np.ix_(modes_Ua, modes_Ua)] = U_a
-    # print('\nU_a:')
-    # print(U_meas_alice)
 
     ## Unitary for projective Bob measurement
     dim_ub1, dim_ub2 = np.shape(U_b)
@@ -229,32 +231,75 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
     U_meas_bob = np.identity(nmodes, dtype=np.cdouble)
     modes_Ua = signal_bob_modes
     U_meas_bob[np.ix_(modes_Ua, modes_Ua)] = U_b
-    # print('\nU_b:')
-    # print(U_meas_bob)
+
+    ### Cross-talk unitary
+    xtalk_U = np.identity(nmodes, dtype=np.cdouble)
+    for ix in range(len(signal_alice_modes) - 1):
+        xtalk_U = get_tunable_bs_sym(xtalk_par, signal_alice_modes[ix], signal_alice_modes[ix + 1], nmodes)[1] \
+                  @ xtalk_U
+    # for ix in range(len(signal_bob_modes)-1):
+    #     xtalk_U = get_tunable_bs_sym(xtalk_par, signal_bob_modes[ix], signal_bob_modes[ix + 1], nmodes)[1] \
+    #               @ xtalk_U
 
     ## Calculate the total linear-optical unitary.
-    LO_unitary = U_meas_alice @ U_meas_bob @ U_out_mat @ multiport_U @ U_tilde_mat @ prep_U_ancillas
+    LO_unitary = U_meas_alice @ U_meas_bob @ U_out_mat @ multiport_U @ U_tilde_mat @ xtalk_U @ prep_U_ancillas
 
     ## Gets the linear-optical transformation in the symplectic form.
     LO_unitary_sym = get_unitary_sym(LO_unitary)
 
-    ###############################################
-    ### CALCULATE TOTAL GAUSSIAN TRANSFORMATION ###
-    ###############################################
+    ##########################
+    ### PERFORM EVOLUTIONS ###
+    ##########################
+
+    ### SOURCES
 
     ## Obtains the total Gaussian transformation matrix in the symplectic formalism
-    sym_transf = LO_unitary_sym @ sources_ancillas @ ent_sources_bob @ ent_sources_alice
+    sym_transf_sources = sources_ancillas @ ent_sources_bob @ ent_sources_alice
 
-    #############################
-    ### EVOLVE GAUSSIAN STATE ###
-    #############################
+    ## Obtains the covariance matrix and ampls of the output Gaussian state
+    cov_mat = symplectic_evolution(cov_mat, sym_transf_sources)
+    ampls = ampls
+
+    ## APPLY LOSSES
+    U_loss = np.identity(2 * nmodes)
+
+    # uniform losses in all modes
+    for i in range(nmodes):
+        U_loss = U_loss @ get_tunable_bs_sym(1 - transm, i, i + nmodes, 2 * nmodes)[1]
+
+    # losses only in fibers (no losses on ancillas and detectors)
+    # for i in (signal_alice_modes + idler_alice_modes + signal_bob_modes + idler_bob_modes):
+    #     U_loss = U_loss @ get_tunable_bs_sym(1 - transm, i, i + nmodes, 2 * nmodes)[1]
+
+    U_loss_sym = get_unitary_sym(U_loss)
+
+    # redefine covariance and amplitudes including auxiliary modes for losses
+    cov_mat_temp = np.identity(4 * nmodes)
+    cov_mat_temp[
+        np.ix_(exp_modes + [i + nmodes for i in exp_modes], exp_modes + [i + nmodes for i in exp_modes])] = cov_mat
+    ampls_temp = np.zeros(2 * nmodes)
+    ampls_temp[exp_modes] = ampls
+
+    # evolve through losses:
+    cov_mat_temp = symplectic_evolution(cov_mat_temp, U_loss_sym)
+    ampls_temp = U_loss @ ampls_temp
+
+    ### trace out loss modes
+    cov_mat_1 = cov_mat_temp[
+        np.ix_(exp_modes + [i + nmodes for i in exp_modes], exp_modes + [i + nmodes for i in exp_modes])]
+    cov_mat = cov_mat_1
+    ampls = ampls_temp[exp_modes]
+
+    ### EVOLVE THROUGH LINEAR OPTICS
+
+    ## Obtains the total Gaussian transformation matrix in the symplectic formalism
+    sym_transf = LO_unitary_sym
 
     ## Obtains the covariance matrix of the output Gaussian state
     cov_mat = symplectic_evolution(cov_mat, sym_transf)
 
     ## Obtains the amplitudes of the output Gaussian state
     ampls = LO_unitary @ ampls
-    # print('ampls1:', ampls)
 
     ###############################
     ### SINGLE PHOTON DETECTION ###
@@ -274,24 +319,44 @@ def HighD_Swapping_simulator(dim, U_a, U_b, herald_pattern, U_out, U_tilde,
 
     prob_list = []
     # print('\nSTART Detecting')
+
     for detected_modes in detected_modes_list:
-        ## convert the detection configuration into a Fock state
-        output_Fock = conf_to_Fock(detected_modes, nmodes)
-        # print('Det:', detected_modes, 'Fock:', output_Fock)
-        if number_resolving_det:
-            ## Calculates the detection probability considering number-resolving detectors.
-            prob = gauss_state.fock_prob(output_Fock)
-        else:
-            ## Calculates the detection probability considering threshold detectors.
-            if parallelized:
-                prob = threshold_detection_prob_parallel(gauss_state.cov(), gauss_state.means(), output_Fock)
+        tot_num_dets = len(detected_modes)
+        num_unclicked_det = nmodes - tot_num_dets
+
+        if abs(dark_counts_prob) < 10 ** (-15):
+            ## convert the detection configuration into a Fock state
+            output_Fock = conf_to_Fock(detected_modes, nmodes)
+            nphotons = sum(output_Fock)
+            if number_resolving_det:
+                ## Calculates the detection probability considering number-resolving detectors.
+                prob = gauss_state.fock_prob(output_Fock)
             else:
-                prob = threshold_detection_prob(gauss_state.cov(), gauss_state.means(), output_Fock)
+                ## Calculates the detection probability considering threshold detectors.
+                if parallelized:
+                    prob = threshold_detection_prob_parallel(gauss_state.cov(), gauss_state.means(), output_Fock)
+                else:
+                    prob = threshold_detection_prob(gauss_state.cov(), gauss_state.means(), output_Fock)
+        else:
+            ### SIMULATE DARK COUNTS - Only doing it for threshold detectors.
+            prob = 0
+            # print('starting counts', )
+            for good_det_modes in powerset(detected_modes):
+                # print(detected_modes, good_det_modes)
+                temp_detected_modes = good_det_modes
+                output_Fock = conf_to_Fock(temp_detected_modes, nmodes)
+                temp_prob = threshold_detection_prob(gauss_state.cov(), gauss_state.means(), output_Fock)
+                temp_prob = temp_prob * (dark_counts_prob ** (tot_num_dets - len(temp_detected_modes))) * \
+                            ((1 - dark_counts_prob) ** num_unclicked_det)
+                # print(temp_prob)
+                prob += temp_prob
 
         prob_list.append(prob)
 
     meas_probs = np.array(prob_list)
     tot_prob = np.sum(meas_probs)
-    meas_probs_norm = meas_probs / tot_prob
 
-    return meas_probs_norm, tot_prob
+    if normalized:
+        return meas_probs / tot_prob, tot_prob
+    else:
+        return meas_probs, tot_prob
